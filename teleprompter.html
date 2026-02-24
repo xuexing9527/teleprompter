@@ -5,24 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>简易提词器</title>
   <style>
-    /* 主题色变量：集中管理，便于后续统一换肤。 */
     :root {
-      --bg: #121212;
-      --panel: #1b1b1b;
+      --bg: linear-gradient(160deg, #0f1720, #1a2430 60%, #111827);
+      --panel: rgba(27, 27, 27, 0.92);
       --text: #f5f5f5;
       --muted: #bdbdbd;
       --accent: #26c6da;
+      --prompt-color: rgba(255, 255, 255, 0.92);
+      --prompt-shadow: rgba(0, 0, 0, 0.45);
+      --prompt-size: 40px;
+      --prompt-overlay: rgba(0, 0, 0, 0.25);
+      --content-overlay: rgba(0, 0, 0, 0.1);
     }
 
     * {
       box-sizing: border-box;
     }
 
-    /* 页面采用上下分区：上方控制区 + 下方提词展示区。 */
     body {
       margin: 0;
       font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-      background: linear-gradient(160deg, #0f1720, #1a2430 60%, #111827);
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       display: grid;
@@ -31,9 +34,8 @@
       padding: 16px;
     }
 
-    /* 控制面板包含输入框、按钮、速度滑块。 */
     .controls {
-      background: rgba(27, 27, 27, 0.92);
+      background: var(--panel);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 12px;
@@ -41,7 +43,6 @@
       gap: 10px;
     }
 
-    /* 提词源文本输入区。 */
     textarea {
       width: 100%;
       min-height: 140px;
@@ -55,7 +56,6 @@
       line-height: 1.5;
     }
 
-    /* 控制组件横向排布，窄屏时允许换行。 */
     .row {
       display: flex;
       flex-wrap: wrap;
@@ -79,7 +79,25 @@
     }
 
     input[type="range"] {
-      width: 200px;
+      width: 180px;
+    }
+
+    input[type="color"] {
+      width: 44px;
+      height: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    select {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 6px 10px;
     }
 
     .label {
@@ -87,18 +105,16 @@
       font-size: 14px;
     }
 
-    /* 提词显示容器：允许看到背景，营造“透明提词层”效果。 */
     .teleprompter {
       position: relative;
       overflow: hidden;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(0, 0, 0, 0.25);
+      background: var(--prompt-overlay);
       backdrop-filter: blur(1px);
       min-height: 45vh;
     }
 
-    /* 上下渐隐蒙层：让文字进入/离开视口时更自然。 */
     .teleprompter::before,
     .teleprompter::after {
       content: "";
@@ -120,7 +136,6 @@
       background: linear-gradient(to top, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0));
     }
 
-    /* 实际滚动区域：脚本通过修改 scrollTop 实现平滑匀速自动滚动。 */
     .content {
       position: absolute;
       inset: 0;
@@ -129,31 +144,30 @@
       scroll-behavior: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
-      background: rgba(0, 0, 0, 0.1);
+      background: var(--content-overlay);
     }
 
     .content::-webkit-scrollbar {
       display: none;
     }
 
-    /* 提词文字样式：使用较大字号、宽行距提升朗读时可读性。 */
     .text {
       margin: 0;
-      font-size: clamp(24px, 3.1vw, 44px);
+      font-size: var(--prompt-size);
       line-height: 1.8;
       white-space: pre-wrap;
-      color: rgba(255, 255, 255, 0.92);
-      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+      color: var(--prompt-color);
+      text-shadow: 0 2px 6px var(--prompt-shadow);
     }
   </style>
 </head>
 <body>
-  <!-- 控制区：输入文本 + 播放控制 + 速度调节。 -->
   <section class="controls">
     <textarea id="sourceText" placeholder="在这里输入提词内容...">欢迎使用简易提词器。
 你可以在上方输入任意提词内容。
 点击“开始滚动”后，文本会自动向上透明滚动。
-通过速度滑块调整滚动速度。</textarea>
+通过控制区调整速度、配色和字号。</textarea>
+
     <div class="row">
       <button id="startBtn">开始滚动</button>
       <button id="pauseBtn" class="secondary">暂停</button>
@@ -162,9 +176,39 @@
       <input id="speedRange" type="range" min="10" max="200" value="60" />
       <span id="speedValue" class="label">60 px/s</span>
     </div>
+
+    <div class="row">
+      <span class="label">背景配色</span>
+      <select id="bgThemeSelect" aria-label="背景配色">
+        <option value="ocean">深海蓝</option>
+        <option value="dawn">日出橙</option>
+        <option value="studio">演播灰</option>
+        <option value="forest">森林绿</option>
+        <option value="custom">自定义</option>
+      </select>
+
+      <span class="label">字体配色</span>
+      <select id="textThemeSelect" aria-label="字体配色">
+        <option value="classic">经典白</option>
+        <option value="amber">暖黄</option>
+        <option value="mint">薄荷绿</option>
+        <option value="highContrast">高对比</option>
+        <option value="custom">自定义</option>
+      </select>
+
+      <span class="label">字体大小</span>
+      <input id="fontSizeRange" type="range" min="24" max="72" value="40" />
+      <span id="fontSizeValue" class="label">40 px</span>
+    </div>
+
+    <div class="row">
+      <span class="label">自定义背景</span>
+      <input id="customBgColor" type="color" value="#1a2430" aria-label="自定义背景颜色" />
+      <span class="label">自定义文字</span>
+      <input id="customTextColor" type="color" value="#ffffff" aria-label="自定义文字颜色" />
+    </div>
   </section>
 
-  <!-- 展示区：只负责显示提词，不直接编辑。 -->
   <section class="teleprompter" aria-label="提词显示区">
     <div id="content" class="content">
       <p id="displayText" class="text"></p>
@@ -172,7 +216,6 @@
   </section>
 
   <script>
-    // DOM 引用：集中定义，减少重复查询。
     const sourceText = document.getElementById("sourceText");
     const displayText = document.getElementById("displayText");
     const content = document.getElementById("content");
@@ -181,19 +224,127 @@
     const resetBtn = document.getElementById("resetBtn");
     const speedRange = document.getElementById("speedRange");
     const speedValue = document.getElementById("speedValue");
+    const bgThemeSelect = document.getElementById("bgThemeSelect");
+    const textThemeSelect = document.getElementById("textThemeSelect");
+    const fontSizeRange = document.getElementById("fontSizeRange");
+    const fontSizeValue = document.getElementById("fontSizeValue");
+    const customBgColor = document.getElementById("customBgColor");
+    const customTextColor = document.getElementById("customTextColor");
 
-    // 运行状态：通过 requestAnimationFrame 控制滚动时序。
+    const backgroundThemes = {
+      ocean: {
+        bg: "linear-gradient(160deg, #0f1720, #1a2430 60%, #111827)",
+        panel: "rgba(27, 27, 27, 0.92)",
+        promptOverlay: "rgba(0, 0, 0, 0.25)",
+        contentOverlay: "rgba(0, 0, 0, 0.1)",
+      },
+      dawn: {
+        bg: "linear-gradient(160deg, #2f1b12, #6f2f1a 50%, #9d4b18)",
+        panel: "rgba(46, 24, 18, 0.9)",
+        promptOverlay: "rgba(32, 16, 8, 0.28)",
+        contentOverlay: "rgba(20, 10, 6, 0.12)",
+      },
+      studio: {
+        bg: "linear-gradient(150deg, #0e1116, #1f2937 55%, #111827)",
+        panel: "rgba(20, 24, 30, 0.9)",
+        promptOverlay: "rgba(8, 10, 14, 0.3)",
+        contentOverlay: "rgba(0, 0, 0, 0.14)",
+      },
+      forest: {
+        bg: "linear-gradient(160deg, #0d1f18, #1c3b2b 55%, #1f5137)",
+        panel: "rgba(18, 38, 28, 0.9)",
+        promptOverlay: "rgba(10, 24, 16, 0.28)",
+        contentOverlay: "rgba(6, 16, 10, 0.12)",
+      },
+    };
+
+    const textThemes = {
+      classic: {
+        color: "rgba(255, 255, 255, 0.92)",
+        shadow: "rgba(0, 0, 0, 0.45)",
+      },
+      amber: {
+        color: "rgba(255, 228, 156, 0.95)",
+        shadow: "rgba(42, 24, 0, 0.5)",
+      },
+      mint: {
+        color: "rgba(190, 255, 232, 0.95)",
+        shadow: "rgba(0, 24, 16, 0.55)",
+      },
+      highContrast: {
+        color: "#ffffff",
+        shadow: "rgba(0, 0, 0, 0.85)",
+      },
+    };
+
     let isRunning = false;
     let speed = Number(speedRange.value);
     let lastTime = 0;
     let rafId = 0;
 
-    // 把输入框内容同步到提词展示区。
     function syncText() {
       displayText.textContent = sourceText.value || "";
     }
 
-    // 每一帧按“速度(px/s) * 时间差(s)”推进滚动位置，保证不同设备下速度一致。
+    function darkenHex(hex, ratio) {
+      const safeHex = hex.replace("#", "");
+      const fullHex = safeHex.length === 3
+        ? safeHex.split("").map((ch) => ch + ch).join("")
+        : safeHex;
+      const r = Math.max(0, Math.floor(parseInt(fullHex.slice(0, 2), 16) * ratio));
+      const g = Math.max(0, Math.floor(parseInt(fullHex.slice(2, 4), 16) * ratio));
+      const b = Math.max(0, Math.floor(parseInt(fullHex.slice(4, 6), 16) * ratio));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function applyCustomBackground() {
+      const color = customBgColor.value;
+      const darker = darkenHex(color, 0.55);
+      const deepest = darkenHex(color, 0.35);
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--bg", `linear-gradient(160deg, ${deepest}, ${color} 55%, ${darker})`);
+      rootStyle.setProperty("--panel", "rgba(17, 24, 39, 0.88)");
+      rootStyle.setProperty("--prompt-overlay", "rgba(0, 0, 0, 0.28)");
+      rootStyle.setProperty("--content-overlay", "rgba(0, 0, 0, 0.12)");
+    }
+
+    function applyBackgroundTheme(name) {
+      if (name === "custom") {
+        applyCustomBackground();
+        return;
+      }
+      const theme = backgroundThemes[name] || backgroundThemes.ocean;
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--bg", theme.bg);
+      rootStyle.setProperty("--panel", theme.panel);
+      rootStyle.setProperty("--prompt-overlay", theme.promptOverlay);
+      rootStyle.setProperty("--content-overlay", theme.contentOverlay);
+    }
+
+    function applyCustomTextTheme() {
+      const color = customTextColor.value;
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--prompt-color", color);
+      rootStyle.setProperty("--prompt-shadow", "rgba(0, 0, 0, 0.75)");
+    }
+
+    function applyTextTheme(name) {
+      if (name === "custom") {
+        applyCustomTextTheme();
+        return;
+      }
+      const theme = textThemes[name] || textThemes.classic;
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--prompt-color", theme.color);
+      rootStyle.setProperty("--prompt-shadow", theme.shadow);
+    }
+
+    function applyFontSize(value) {
+      const size = Number(value);
+      document.documentElement.style.setProperty("--prompt-size", `${size}px`);
+      fontSizeValue.textContent = `${size} px`;
+    }
+
     function tick(timestamp) {
       if (!isRunning) {
         return;
@@ -206,7 +357,6 @@
 
       content.scrollTop += speed * deltaSec;
 
-      // 到底后自动停止，避免空转。
       const maxScroll = content.scrollHeight - content.clientHeight;
       if (content.scrollTop >= maxScroll) {
         isRunning = false;
@@ -217,7 +367,6 @@
       rafId = requestAnimationFrame(tick);
     }
 
-    // 开始滚动：仅在当前未运行时启动动画循环。
     function start() {
       if (isRunning) {
         return;
@@ -227,7 +376,6 @@
       rafId = requestAnimationFrame(tick);
     }
 
-    // 暂停滚动：保留当前位置，可继续播放。
     function pause() {
       isRunning = false;
       lastTime = 0;
@@ -236,13 +384,11 @@
       }
     }
 
-    // 重置滚动：回到顶部，并保持暂停状态。
     function reset() {
       pause();
       content.scrollTop = 0;
     }
 
-    // 编辑文本时，尽量保持当前阅读进度比例，避免跳回开头造成阅读中断。
     sourceText.addEventListener("input", () => {
       const currentRatio = content.scrollTop / Math.max(content.scrollHeight - content.clientHeight, 1);
       syncText();
@@ -250,19 +396,45 @@
       content.scrollTop = currentRatio * newMax;
     });
 
-    // 速度实时生效，并更新可视化文案。
     speedRange.addEventListener("input", () => {
       speed = Number(speedRange.value);
       speedValue.textContent = `${speed} px/s`;
     });
 
-    // 按钮事件绑定。
+    bgThemeSelect.addEventListener("change", () => {
+      applyBackgroundTheme(bgThemeSelect.value);
+    });
+
+    textThemeSelect.addEventListener("change", () => {
+      applyTextTheme(textThemeSelect.value);
+    });
+
+    customBgColor.addEventListener("input", () => {
+      if (bgThemeSelect.value !== "custom") {
+        bgThemeSelect.value = "custom";
+      }
+      applyBackgroundTheme("custom");
+    });
+
+    customTextColor.addEventListener("input", () => {
+      if (textThemeSelect.value !== "custom") {
+        textThemeSelect.value = "custom";
+      }
+      applyTextTheme("custom");
+    });
+
+    fontSizeRange.addEventListener("input", () => {
+      applyFontSize(fontSizeRange.value);
+    });
+
     startBtn.addEventListener("click", start);
     pauseBtn.addEventListener("click", pause);
     resetBtn.addEventListener("click", reset);
 
-    // 首次加载时先渲染默认文本。
     syncText();
+    applyBackgroundTheme(bgThemeSelect.value);
+    applyTextTheme(textThemeSelect.value);
+    applyFontSize(fontSizeRange.value);
   </script>
 </body>
 </html>
