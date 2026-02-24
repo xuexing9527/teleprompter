@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>简易提词器</title>
   <style>
-    /* 主题变量：背景、面板、文字和字号均可通过控制区动态调整。 */
     :root {
       --bg: linear-gradient(160deg, #0f1720, #1a2430 60%, #111827);
       --panel: rgba(27, 27, 27, 0.92);
@@ -81,6 +80,16 @@
 
     input[type="range"] {
       width: 180px;
+    }
+
+    input[type="color"] {
+      width: 44px;
+      height: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
     }
 
     select {
@@ -175,6 +184,7 @@
         <option value="dawn">日出橙</option>
         <option value="studio">演播灰</option>
         <option value="forest">森林绿</option>
+        <option value="custom">自定义</option>
       </select>
 
       <span class="label">字体配色</span>
@@ -183,11 +193,19 @@
         <option value="amber">暖黄</option>
         <option value="mint">薄荷绿</option>
         <option value="highContrast">高对比</option>
+        <option value="custom">自定义</option>
       </select>
 
       <span class="label">字体大小</span>
       <input id="fontSizeRange" type="range" min="24" max="72" value="40" />
       <span id="fontSizeValue" class="label">40 px</span>
+    </div>
+
+    <div class="row">
+      <span class="label">自定义背景</span>
+      <input id="customBgColor" type="color" value="#1a2430" aria-label="自定义背景颜色" />
+      <span class="label">自定义文字</span>
+      <input id="customTextColor" type="color" value="#ffffff" aria-label="自定义文字颜色" />
     </div>
   </section>
 
@@ -198,7 +216,6 @@
   </section>
 
   <script>
-    // DOM 引用。
     const sourceText = document.getElementById("sourceText");
     const displayText = document.getElementById("displayText");
     const content = document.getElementById("content");
@@ -211,8 +228,9 @@
     const textThemeSelect = document.getElementById("textThemeSelect");
     const fontSizeRange = document.getElementById("fontSizeRange");
     const fontSizeValue = document.getElementById("fontSizeValue");
+    const customBgColor = document.getElementById("customBgColor");
+    const customTextColor = document.getElementById("customTextColor");
 
-    // 主题配置：背景和文本配色分别管理，便于扩展。
     const backgroundThemes = {
       ocean: {
         bg: "linear-gradient(160deg, #0f1720, #1a2430 60%, #111827)",
@@ -268,7 +286,33 @@
       displayText.textContent = sourceText.value || "";
     }
 
+    function darkenHex(hex, ratio) {
+      const safeHex = hex.replace("#", "");
+      const fullHex = safeHex.length === 3
+        ? safeHex.split("").map((ch) => ch + ch).join("")
+        : safeHex;
+      const r = Math.max(0, Math.floor(parseInt(fullHex.slice(0, 2), 16) * ratio));
+      const g = Math.max(0, Math.floor(parseInt(fullHex.slice(2, 4), 16) * ratio));
+      const b = Math.max(0, Math.floor(parseInt(fullHex.slice(4, 6), 16) * ratio));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function applyCustomBackground() {
+      const color = customBgColor.value;
+      const darker = darkenHex(color, 0.55);
+      const deepest = darkenHex(color, 0.35);
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--bg", `linear-gradient(160deg, ${deepest}, ${color} 55%, ${darker})`);
+      rootStyle.setProperty("--panel", "rgba(17, 24, 39, 0.88)");
+      rootStyle.setProperty("--prompt-overlay", "rgba(0, 0, 0, 0.28)");
+      rootStyle.setProperty("--content-overlay", "rgba(0, 0, 0, 0.12)");
+    }
+
     function applyBackgroundTheme(name) {
+      if (name === "custom") {
+        applyCustomBackground();
+        return;
+      }
       const theme = backgroundThemes[name] || backgroundThemes.ocean;
       const rootStyle = document.documentElement.style;
       rootStyle.setProperty("--bg", theme.bg);
@@ -277,7 +321,18 @@
       rootStyle.setProperty("--content-overlay", theme.contentOverlay);
     }
 
+    function applyCustomTextTheme() {
+      const color = customTextColor.value;
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--prompt-color", color);
+      rootStyle.setProperty("--prompt-shadow", "rgba(0, 0, 0, 0.75)");
+    }
+
     function applyTextTheme(name) {
+      if (name === "custom") {
+        applyCustomTextTheme();
+        return;
+      }
       const theme = textThemes[name] || textThemes.classic;
       const rootStyle = document.documentElement.style;
       rootStyle.setProperty("--prompt-color", theme.color);
@@ -354,6 +409,20 @@
       applyTextTheme(textThemeSelect.value);
     });
 
+    customBgColor.addEventListener("input", () => {
+      if (bgThemeSelect.value !== "custom") {
+        bgThemeSelect.value = "custom";
+      }
+      applyBackgroundTheme("custom");
+    });
+
+    customTextColor.addEventListener("input", () => {
+      if (textThemeSelect.value !== "custom") {
+        textThemeSelect.value = "custom";
+      }
+      applyTextTheme("custom");
+    });
+
     fontSizeRange.addEventListener("input", () => {
       applyFontSize(fontSizeRange.value);
     });
@@ -362,7 +431,6 @@
     pauseBtn.addEventListener("click", pause);
     resetBtn.addEventListener("click", reset);
 
-    // 初始化默认状态。
     syncText();
     applyBackgroundTheme(bgThemeSelect.value);
     applyTextTheme(textThemeSelect.value);
